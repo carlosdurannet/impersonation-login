@@ -1,12 +1,10 @@
 # Impersonations Hook
 
-This is a module for Liferay (version 7.1) that implements a more effective impersonation function without using an url parameter
-
-> *IMPORTANT!* This project is still under development and it doesn't work yet. You can see a fully functionaly hook plugin for 6.2 version in [carlosdurannet/impersonation-hook](https://github.com/carlosdurannet/impersonation-hook) repository
+This is a module for Liferay 7 that implements a more effective impersonation function without using an url parameter
 
 ## Requirements
 
-The module needs a Liferay Portal and user must access to manual login using screen name
+The module needs a Liferay 7 Portal and user must access to manual login using screen name
 
 ## Usage
 
