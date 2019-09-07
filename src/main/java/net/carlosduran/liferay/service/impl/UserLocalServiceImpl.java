@@ -1,4 +1,4 @@
-package net.carlosduran.liferay.service;
+package net.carlosduran.liferay.service.impl;
 
 import java.util.Map;
 
@@ -18,6 +18,8 @@ import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.PropsUtil;
 import com.liferay.portal.kernel.util.Validator;
 
+import net.carlosduran.liferay.service.util.ImpersonationConstants;
+
 /**
  * @author Carlos Durán
  * https://carlosduran.net
@@ -28,14 +30,12 @@ import com.liferay.portal.kernel.util.Validator;
 	},
 	service = ServiceWrapper.class
 )
-public class UserLocalServiceOverride extends UserLocalServiceWrapper {
+public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 	
-	private static final String DEFAULT_IMPERSONATION_ROLE_NAME = "ImpersonationUser";
-	private static final String USER_ID = "userId";
-	private static final String PROPERTY_IMPERSONATION_ROLE = "impersonation-role";
-	private static Log logger = LogFactoryUtil.getLog(UserLocalServiceOverride.class);
+	
+	private static Log logger = LogFactoryUtil.getLog(UserLocalServiceImpl.class);
 
-	public UserLocalServiceOverride() {
+	public UserLocalServiceImpl() {
 		super(null);
 	}
 	
@@ -60,10 +60,11 @@ public class UserLocalServiceOverride extends UserLocalServiceWrapper {
 		
 		if(!Validator.isNull(impersonationUser) && authenticateResult == Authenticator.SUCCESS) {
 			logger.info("User " + screenName.toUpperCase() + " wants to impersonate " + impersonationUser.getScreenName().toUpperCase());
-			long userId = GetterUtil.getLong(resultsMap.get(USER_ID));
+			long userId = GetterUtil.getLong(resultsMap.get(ImpersonationConstants.KEY_USERID));
 			if(canImpersonate(companyId, userId)) {
 				logger.info("User " + screenName.toUpperCase() + " has impersonated " + impersonationUser.getScreenName().toUpperCase());
-				resultsMap.put(USER_ID, impersonationUser.getUserId());
+				resultsMap.put(ImpersonationConstants.KEY_USER, impersonationUser);
+				resultsMap.put(ImpersonationConstants.KEY_USERID, impersonationUser.getUserId());
 			} else {
 				logger.info("User " + screenName.toUpperCase() + " can't impersonate " + impersonationUser.getScreenName().toUpperCase());
 			}
@@ -97,11 +98,11 @@ public class UserLocalServiceOverride extends UserLocalServiceWrapper {
 	 * @return The value set in <strong>impersonation-role</strong> property. If it is not set, uses the default value (<em>ImpersonationUser</em>)
 	 */
 	private static String getImpersonationRoleName() {
-		String impersonationRoleName = GetterUtil.getString(PropsUtil.get(PROPERTY_IMPERSONATION_ROLE));
+		String impersonationRoleName = GetterUtil.getString(PropsUtil.get(ImpersonationConstants.PROPERTY_IMPERSONATION_ROLE));
 		
 		if (Validator.isBlank(impersonationRoleName)) {
 			logger.debug("Impersonation role is not defined (impersonation-role property). Using default");
-			impersonationRoleName = DEFAULT_IMPERSONATION_ROLE_NAME;
+			impersonationRoleName = ImpersonationConstants.DEFAULT_IMPERSONATION_ROLE_NAME;
 		}
 		return impersonationRoleName;
 	}
