@@ -1,9 +1,11 @@
 package net.carlosduran.liferay.service.impl;
 
+import java.util.Date;
 import java.util.Map;
 
 import org.osgi.service.component.annotations.Component;
 
+import com.liferay.counter.kernel.service.CounterLocalServiceUtil;
 import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
@@ -18,6 +20,8 @@ import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.PropsUtil;
 import com.liferay.portal.kernel.util.Validator;
 
+import net.carlosduran.liferay.impersonation.sb.model.ImpersonationRegistry;
+import net.carlosduran.liferay.impersonation.sb.service.ImpersonationRegistryLocalServiceUtil;
 import net.carlosduran.liferay.service.util.ImpersonationConstants;
 
 /**
@@ -45,6 +49,7 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 			throws PortalException, SystemException {
 		
 		User impersonationUser = null;
+		int result = ImpersonationConstants.IMPRESONATION_NO_RESULT;
 		
 		if(screenName.indexOf(StringPool.POUND) > -1) {
 			String[] impersonationComposition = screenName.split(StringPool.POUND);
@@ -52,22 +57,43 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 			try {
 				impersonationUser = getUserByScreenName(companyId, impersonationComposition[1]);
 			} catch (Exception ex) {
-				logger.warn("Cannot get user to impersonate: " + ex.getMessage());
+				result = ImpersonationConstants.IMPRESONATION_RESULT_USER_UNAVAILABLE;
+				logger.warn("Cannot get the user to impersonate: " + ex.getMessage());
 			}
 		}
 		
 		int authenticateResult = super.authenticateByScreenName(companyId, screenName, password, headerMap, parameterMap, resultsMap);
 		
-		if(!Validator.isNull(impersonationUser) && authenticateResult == Authenticator.SUCCESS) {
+		if((!Validator.isNull(impersonationUser) || result != ImpersonationConstants.IMPRESONATION_NO_RESULT)
+				&& authenticateResult == Authenticator.SUCCESS) {
+			
+			ImpersonationRegistry impersonationRegistry = 
+					ImpersonationRegistryLocalServiceUtil
+						.createImpersonationRegistry(
+								CounterLocalServiceUtil.increment(ImpersonationRegistry.class.getName()));
+			
 			logger.info("User " + screenName.toUpperCase() + " wants to impersonate " + impersonationUser.getScreenName().toUpperCase());
 			long userId = GetterUtil.getLong(resultsMap.get(ImpersonationConstants.KEY_USERID));
-			if(canImpersonate(companyId, userId)) {
-				logger.info("User " + screenName.toUpperCase() + " has impersonated " + impersonationUser.getScreenName().toUpperCase());
-				resultsMap.put(ImpersonationConstants.KEY_USER, impersonationUser);
-				resultsMap.put(ImpersonationConstants.KEY_USERID, impersonationUser.getUserId());
+			impersonationRegistry.setCompanyId(companyId);
+			impersonationRegistry.setOperationDate(new Date());
+			impersonationRegistry.setUserId(userId);
+			
+			if(result != ImpersonationConstants.IMPRESONATION_NO_RESULT) {
+				impersonationRegistry.setImpersonatedUserId(impersonationUser.getUserId());
+				if(canImpersonate(companyId, userId)) {
+					resultsMap.put(ImpersonationConstants.KEY_USER, impersonationUser);
+					resultsMap.put(ImpersonationConstants.KEY_USERID, impersonationUser.getUserId());
+					result = ImpersonationConstants.IMPRESONATION_RESULT_GRANTED;
+					logger.info("User " + screenName.toUpperCase() + " has impersonated " + impersonationUser.getScreenName().toUpperCase());
+				} else {
+					result = ImpersonationConstants.IMPRESONATION_RESULT_DENIED;
+					logger.info("User " + screenName.toUpperCase() + " can't impersonate " + impersonationUser.getScreenName().toUpperCase());
+				}
 			} else {
-				logger.info("User " + screenName.toUpperCase() + " can't impersonate " + impersonationUser.getScreenName().toUpperCase());
+				impersonationRegistry.setImpersonatedUserId(0);
 			}
+			impersonationRegistry.setOperationResult(result);
+			ImpersonationRegistryLocalServiceUtil.addImpersonationRegistry(impersonationRegistry);
 		}
 		
 		return authenticateResult;
