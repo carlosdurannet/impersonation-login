@@ -2,4 +2,6 @@ dependencies {
 	compileOnly group: "com.liferay.portal", name: "com.liferay.portal.kernel"
 	compileOnly group: "org.osgi", name: "osgi.cmpn"
 	compileOnly group: 'com.liferay', name: 'com.liferay.petra.string', version: '2.1.4'
+	
+	compile project (":modules:impersonation-sb:impersonation-sb-api")
 }
