@@ -53,30 +53,32 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 		User impersonationUser = null;
 		String impersonationScreenName = StringPool.BLANK;
 		int result = ImpersonationConstants.NO_IMPERSONATION;
+		boolean impersonationMode = screenName.indexOf(StringPool.POUND) > -1;
 		
-		if(screenName.indexOf(StringPool.POUND) > -1) {
+		if(impersonationMode) {
 			String[] impersonationComposition = screenName.split(StringPool.POUND);
-			screenName = impersonationComposition[0].toUpperCase();
-			impersonationScreenName = impersonationComposition[1].toUpperCase();
+			screenName = impersonationComposition[0].toLowerCase();
+			impersonationScreenName = impersonationComposition[1].toLowerCase();
 			try {
 				impersonationUser = getUser(companyId, impersonationScreenName);
-				result = ImpersonationConstants.IMPRESONATION_RESULT_DENIED;
 			} catch (UserNotFoundException userNotFoundEx) {
 				result = ImpersonationConstants.IMPRESONATION_RESULT_USER_UNAVAILABLE;
 				logger.warn("Cannot get the user to impersonate: " + userNotFoundEx.getMessage());
+			} catch (Exception ex) {
+				logger.warn(ex.getMessage(), ex);
 			}
 		}
 		
 		int authenticateResult = super.authenticateByScreenName(companyId, screenName, password, headerMap, parameterMap, resultsMap);
 		
-		if(result != ImpersonationConstants.NO_IMPERSONATION && authenticateResult == Authenticator.SUCCESS) {
+		if(impersonationMode && authenticateResult == Authenticator.SUCCESS) {
 			
 			ImpersonationRegistry impersonationRegistry = 
 					ImpersonationRegistryLocalServiceUtil
 						.createImpersonationRegistry(
 								CounterLocalServiceUtil.increment(ImpersonationRegistry.class.getName()));
 			
-			logger.info("User " + screenName.toUpperCase() + " wants to impersonate " + impersonationScreenName);
+			logger.info(screenName + " wants to impersonate " + impersonationScreenName);
 			long userId = GetterUtil.getLong(resultsMap.get(ImpersonationConstants.KEY_USERID));
 			impersonationRegistry.setCompanyId(companyId);
 			impersonationRegistry.setOperationDate(new Date());
@@ -89,10 +91,11 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 				if(canImpersonate(companyId, userId)) {
 					resultsMap.put(ImpersonationConstants.KEY_USER, impersonationUser);
 					resultsMap.put(ImpersonationConstants.KEY_USERID, impersonationUser.getUserId());
-					logger.info("User " + screenName.toUpperCase() + " has impersonated " + impersonationUser.getScreenName().toUpperCase());
+					result = ImpersonationConstants.IMPRESONATION_RESULT_GRANTED;
+					logger.info("User " + screenName + " has impersonated " + impersonationUser.getScreenName().toUpperCase());
 				} else {
 					result = ImpersonationConstants.IMPRESONATION_RESULT_DENIED;
-					logger.info("User " + screenName.toUpperCase() + " can't impersonate " + impersonationUser.getScreenName().toUpperCase());
+					logger.info("User " + screenName + " can't impersonate " + impersonationUser.getScreenName().toUpperCase());
 				}
 			} else {
 				impersonationRegistry.setImpersonatedUserId(0);
@@ -153,7 +156,7 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 	private static User getUser(long companyId, String screenName) throws UserNotFoundException {
 		User user = null;
 		try {
-			UserLocalServiceUtil.getUserByScreenName(companyId, screenName);
+			user = UserLocalServiceUtil.getUserByScreenName(companyId, screenName);
 		} catch (Exception ex) {
 			throw new UserNotFoundException("User " + screenName + " not found");
 		}
