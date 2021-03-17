@@ -4,7 +4,7 @@ This is a module for Liferay 7 that implements a more effective impersonation fu
 
 ## Requirements
 
-The module needs a Liferay 7.1.x Portal with [impersonation-sb module](https://github.com/carlosdurannet/impersonation-sb) deployed
+The module needs a Liferay 7.1.x/7.2.x Portal with [impersonation-sb module](https://github.com/carlosdurannet/impersonation-sb) deployed
 
 ## Usage
 
