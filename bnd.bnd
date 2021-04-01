@@ -1,3 +1,3 @@
 Bundle-Name: impersonation-login
-Bundle-SymbolicName: net.carlosduran.liferay.service
-Bundle-Version: 2.0.0
+Bundle-SymbolicName: net.carlosduran.liferay.service.impersonation.login
+Bundle-Version: 1.0.0

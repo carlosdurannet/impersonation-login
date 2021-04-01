@@ -39,7 +39,7 @@ import net.carlosduran.liferay.service.util.ImpersonationConstants;
 public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 	
 	
-	private static Log logger = LogFactoryUtil.getLog(UserLocalServiceImpl.class);
+	private static final Log logger = LogFactoryUtil.getLog(UserLocalServiceImpl.class);
 
 	public UserLocalServiceImpl() {
 		super(null);
@@ -53,7 +53,7 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 		User impersonationUser = null;
 		String impersonationScreenName = StringPool.BLANK;
 		int result = ImpersonationConstants.NO_IMPERSONATION;
-		boolean impersonationMode = screenName.indexOf(StringPool.POUND) > -1;
+		boolean impersonationMode = screenName.contains(StringPool.POUND);
 		
 		if(impersonationMode) {
 			String[] impersonationComposition = screenName.split(StringPool.POUND);
@@ -62,7 +62,7 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 			try {
 				impersonationUser = getUser(companyId, impersonationScreenName);
 			} catch (UserNotFoundException userNotFoundEx) {
-				result = ImpersonationConstants.IMPRESONATION_RESULT_USER_UNAVAILABLE;
+				result = ImpersonationConstants.IMPERSONATION_RESULT_USER_UNAVAILABLE;
 				logger.warn("Cannot get the user to impersonate: " + userNotFoundEx.getMessage());
 			} catch (Exception ex) {
 				logger.warn(ex.getMessage(), ex);
@@ -72,12 +72,11 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 		int authenticateResult = super.authenticateByScreenName(companyId, screenName, password, headerMap, parameterMap, resultsMap);
 		
 		if(impersonationMode && authenticateResult == Authenticator.SUCCESS) {
-			
-			ImpersonationRegistry impersonationRegistry = 
-					ImpersonationRegistryLocalServiceUtil
-						.createImpersonationRegistry(
-								CounterLocalServiceUtil.increment(ImpersonationRegistry.class.getName()));
-			
+
+			long impersonationregistryId = CounterLocalServiceUtil.increment(ImpersonationRegistry.class.getName());
+
+			ImpersonationRegistry impersonationRegistry = ImpersonationRegistryLocalServiceUtil.createImpersonationRegistry(impersonationregistryId);
+
 			logger.info(screenName + " wants to impersonate " + impersonationScreenName);
 			long userId = GetterUtil.getLong(resultsMap.get(ImpersonationConstants.KEY_USERID));
 			impersonationRegistry.setCompanyId(companyId);
@@ -85,16 +84,16 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 			impersonationRegistry.setUserId(userId);
 			impersonationRegistry.setScreenName(screenName);
 			
-			if(result != ImpersonationConstants.IMPRESONATION_RESULT_USER_UNAVAILABLE) {
+			if(Validator.isNotNull(impersonationUser)) {
 				impersonationRegistry.setImpersonatedUserId(impersonationUser.getUserId());
 				impersonationRegistry.setImpersonatedScreenName(impersonationUser.getScreenName());
 				if(canImpersonate(companyId, userId)) {
 					resultsMap.put(ImpersonationConstants.KEY_USER, impersonationUser);
 					resultsMap.put(ImpersonationConstants.KEY_USERID, impersonationUser.getUserId());
-					result = ImpersonationConstants.IMPRESONATION_RESULT_GRANTED;
+					result = ImpersonationConstants.IMPERSONATION_RESULT_GRANTED;
 					logger.info("User " + screenName + " has impersonated " + impersonationUser.getScreenName().toUpperCase());
 				} else {
-					result = ImpersonationConstants.IMPRESONATION_RESULT_DENIED;
+					result = ImpersonationConstants.IMPERSONATION_RESULT_DENIED;
 					logger.info("User " + screenName + " can't impersonate " + impersonationUser.getScreenName().toUpperCase());
 				}
 			} else {
@@ -121,14 +120,10 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 		
 		try {			
 			return RoleLocalServiceUtil.hasUserRole(userId, companyId, impersonationRoleName, Boolean.TRUE);
-		} catch (NullPointerException nullPointerEx) {
-			logger.error(nullPointerEx.getClass().getName() + ": " + nullPointerEx.getMessage());
-		} catch (SystemException systemEx) {
-			logger.error(systemEx.getClass().getName() + ": " + systemEx.getMessage());
 		} catch (Exception ex) {
 			logger.error(ex.getClass().getName() + ": " + ex.getMessage());
 		}
-		
+
 		return false;
 	}
 
@@ -151,10 +146,10 @@ public class UserLocalServiceImpl extends UserLocalServiceWrapper {
 	 * @param companyId company ID
 	 * @param screenName User screen name
 	 * @return The user with the provided screen name or <em>null</em> if it doesn't exist
-	 * @throws UserNotFoundException 
+	 * @throws UserNotFoundException Usuario no encontrado
 	 */
 	private static User getUser(long companyId, String screenName) throws UserNotFoundException {
-		User user = null;
+		User user;
 		try {
 			user = UserLocalServiceUtil.getUserByScreenName(companyId, screenName);
 		} catch (Exception ex) {
